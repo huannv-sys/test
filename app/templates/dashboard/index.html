@@ -1,0 +1,428 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - MikroTik Monitor{% endblock %}
+
+{% block extra_css %}
+<style>
+    .dashboard-stat {
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .dashboard-stat:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+    
+    .bg-soft-primary {
+        background-color: rgba(13, 110, 253, 0.15);
+        color: #0d6efd;
+    }
+    
+    .bg-soft-success {
+        background-color: rgba(25, 135, 84, 0.15);
+        color: #198754;
+    }
+    
+    .bg-soft-warning {
+        background-color: rgba(255, 193, 7, 0.15);
+        color: #ffc107;
+    }
+    
+    .bg-soft-danger {
+        background-color: rgba(220, 53, 69, 0.15);
+        color: #dc3545;
+    }
+    
+    .device-card {
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .device-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .device-status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .device-status-online {
+        background-color: #28a745;
+    }
+    
+    .device-status-offline {
+        background-color: #dc3545;
+    }
+    
+    .device-status-warning {
+        background-color: #ffc107;
+    }
+    
+    .alert-item {
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 10px;
+        transition: all 0.3s ease;
+    }
+    
+    .alert-item:hover {
+        transform: translateX(5px);
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 350px;
+    }
+    
+    .refresh-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 10;
+    }
+    
+    .traffic-sparkline {
+        min-height: 30px;
+    }
+    
+    .device-model-icon {
+        font-size: 1.5rem;
+        margin-right: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3"><i class="fas fa-tachometer-alt"></i> Dashboard</h2>
+        <button class="btn btn-sm btn-primary" id="refreshDashboardBtn">
+            <i class="fas fa-sync-alt"></i> Làm mới
+        </button>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row mb-4">
+        <!-- Total Devices -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow dashboard-stat">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-soft-primary me-3">
+                            <i class="fas fa-server"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0" id="totalDevices">0</h5>
+                            <p class="text-muted mb-0">Tổng thiết bị</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Online Devices -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow dashboard-stat">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-soft-success me-3">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0" id="onlineDevices">0</h5>
+                            <p class="text-muted mb-0">Thiết bị online</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Clients -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow dashboard-stat">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-soft-warning me-3">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0" id="totalClients">0</h5>
+                            <p class="text-muted mb-0">Tổng clients</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alerts -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-0 shadow dashboard-stat">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-soft-danger me-3">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0" id="activeAlerts">0</h5>
+                            <p class="text-muted mb-0">Cảnh báo</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row mb-4">
+        <!-- CPU Usage Chart -->
+        <div class="col-xl-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 bg-light">
+                    <h6 class="m-0 font-weight-bold">CPU Usage</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <button class="btn btn-sm btn-outline-secondary refresh-btn" id="refreshCpuChartBtn">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Client Count Chart -->
+        <div class="col-xl-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 bg-light">
+                    <h6 class="m-0 font-weight-bold">Client Connections</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <button class="btn btn-sm btn-outline-secondary refresh-btn" id="refreshClientChartBtn">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                        <canvas id="clientChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Devices Status and Alerts Row -->
+    <div class="row">
+        <!-- Device Status Table -->
+        <div class="col-xl-8 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3 bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold">Trạng thái thiết bị</h6>
+                    <a href="{{ url_for('main.devices') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt"></i> Xem tất cả
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="deviceStatusTable">
+                            <thead>
+                                <tr>
+                                    <th>Thiết bị</th>
+                                    <th>IP</th>
+                                    <th>Model</th>
+                                    <th>Uptime</th>
+                                    <th>CPU</th>
+                                    <th>Memory</th>
+                                    <th>Traffic</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        Đang tải dữ liệu...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Alerts -->
+        <div class="col-xl-4 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header py-3 bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 font-weight-bold">Cảnh báo gần đây</h6>
+                    <a href="{{ url_for('main.monitoring') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-external-link-alt"></i> Xem tất cả
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div id="recentAlerts">
+                        <div class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Đang tải cảnh báo...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Device Quick View Modal -->
+<div class="modal fade" id="deviceQuickViewModal" tabindex="-1" aria-labelledby="deviceQuickViewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deviceQuickViewModalLabel">Thông tin nhanh thiết bị</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6>Thông tin hệ thống</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <th>Tên:</th>
+                                    <td id="quickViewName">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Model:</th>
+                                    <td id="quickViewModel">-</td>
+                                </tr>
+                                <tr>
+                                    <th>RouterOS:</th>
+                                    <td id="quickViewVersion">-</td>
+                                </tr>
+                                <tr>
+                                    <th>Uptime:</th>
+                                    <td id="quickViewUptime">-</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Tài nguyên</h6>
+                        <div class="mb-3">
+                            <label>CPU Usage:</label>
+                            <div class="progress">
+                                <div id="quickViewCpuBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <span class="small" id="quickViewCpu">0%</span>
+                        </div>
+                        <div class="mb-3">
+                            <label>Memory Usage:</label>
+                            <div class="progress">
+                                <div id="quickViewMemoryBar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <span class="small" id="quickViewMemory">0%</span>
+                        </div>
+                        <div>
+                            <label>Disk Usage:</label>
+                            <div class="progress">
+                                <div id="quickViewDiskBar" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <span class="small" id="quickViewDisk">0%</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h6>Interfaces</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover" id="quickViewInterfacesTable">
+                            <thead>
+                                <tr>
+                                    <th>Tên</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                    <th>Speed</th>
+                                    <th>Traffic In/Out</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="text-center">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <a href="#" class="btn btn-primary" id="quickViewMonitoringLink">
+                    <i class="fas fa-chart-line"></i> Chi tiết giám sát
+                </a>
+                <a href="#" class="btn btn-info" id="quickViewDetailsLink">
+                    <i class="fas fa-server"></i> Chi tiết thiết bị
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize dashboard
+        initializeDashboard();
+        
+        // Refresh dashboard button
+        document.getElementById('refreshDashboardBtn').addEventListener('click', function() {
+            refreshDashboard();
+        });
+        
+        // Refresh chart buttons
+        document.getElementById('refreshCpuChartBtn').addEventListener('click', function() {
+            // Refresh CPU chart with latest data
+            // Implementation in dashboard.js
+        });
+        
+        document.getElementById('refreshClientChartBtn').addEventListener('click', function() {
+            // Refresh Client chart with latest data
+            // Implementation in dashboard.js
+        });
+        
+        // Auto-refresh dashboard every 5 minutes
+        setInterval(function() {
+            refreshDashboard();
+        }, 300000); // 5 minutes
+    });
+</script>
+{% endblock %}

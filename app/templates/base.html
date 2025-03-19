@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MikroTik Monitor{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') }}">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="MikroTik Monitor" height="30" class="me-2">
+                <span>MikroTik Monitor</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
+                            <i class="fas fa-tachometer-alt"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'main.devices' %}active{% endif %}" href="{{ url_for('main.devices') }}">
+                            <i class="fas fa-server"></i> Thiết bị
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'main.monitoring' %}active{% endif %}" href="{{ url_for('main.monitoring') }}">
+                            <i class="fas fa-chart-line"></i> Giám sát
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'main.topology' %}active{% endif %}" href="{{ url_for('main.topology') }}">
+                            <i class="fas fa-project-diagram"></i> Topology
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'main.vpn_monitoring' %}active{% endif %}" href="{{ url_for('main.vpn_monitoring') }}">
+                            <i class="fas fa-shield-alt"></i> VPN
+                        </a>
+                    </li>
+                </ul>
+                
+                <ul class="navbar-nav ms-auto">
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.role == 'admin' %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.users' %}active{% endif %}" href="{{ url_for('main.users') }}">
+                                <i class="fas fa-users-cog"></i> Người dùng
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.settings' %}active{% endif %}" href="{{ url_for('main.settings') }}">
+                                <i class="fas fa-cog"></i> Cài đặt
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user-circle"></i> {{ current_user.username }}
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" id="profileLink">
+                                    <i class="fas fa-id-card"></i> Hồ sơ
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                    <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('auth.login') }}">
+                                <i class="fas fa-sign-in-alt"></i> Đăng nhập
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Sidebar and Main Content -->
+    <div class="container-fluid mt-5 pt-3">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-md-5">
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" href="{{ url_for('main.dashboard') }}">
+                                <i class="fas fa-tachometer-alt"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.devices' %}active{% endif %}" href="{{ url_for('main.devices') }}">
+                                <i class="fas fa-server"></i> Thiết bị
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.monitoring' %}active{% endif %}" href="{{ url_for('main.monitoring') }}">
+                                <i class="fas fa-chart-line"></i> Giám sát
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.topology' %}active{% endif %}" href="{{ url_for('main.topology') }}">
+                                <i class="fas fa-project-diagram"></i> Topology
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.vpn_monitoring' %}active{% endif %}" href="{{ url_for('main.vpn_monitoring') }}">
+                                <i class="fas fa-shield-alt"></i> VPN
+                            </a>
+                        </li>
+                        
+                        <li class="nav-item mt-3">
+                            <hr>
+                        </li>
+                        
+                        {% if current_user.is_authenticated and current_user.role == 'admin' %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.users' %}active{% endif %}" href="{{ url_for('main.users') }}">
+                                <i class="fas fa-users-cog"></i> Người dùng
+                            </a>
+                        </li>
+                        {% endif %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.endpoint == 'main.settings' %}active{% endif %}" href="{{ url_for('main.settings') }}">
+                                <i class="fas fa-cog"></i> Cài đặt
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                        <span>Trạng thái hệ thống</span>
+                    </h6>
+                    <div class="px-3 py-2">
+                        <div class="d-flex justify-content-between mb-2">
+                            <small>CPU</small>
+                            <small id="sidebarCpu">0%</small>
+                        </div>
+                        <div class="progress mb-3" style="height: 4px;">
+                            <div class="progress-bar" id="sidebarCpuBar" style="width: 0%"></div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mb-2">
+                            <small>Memory</small>
+                            <small id="sidebarMemory">0%</small>
+                        </div>
+                        <div class="progress mb-3" style="height: 4px;">
+                            <div class="progress-bar bg-success" id="sidebarMemoryBar" style="width: 0%"></div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mb-2">
+                            <small>Disk</small>
+                            <small id="sidebarDisk">0%</small>
+                        </div>
+                        <div class="progress" style="height: 4px;">
+                            <div class="progress-bar bg-info" id="sidebarDiskBar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+                {% block content %}{% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer mt-auto py-3 bg-dark text-center">
+        <div class="container-fluid">
+            <span class="text-muted">© 2024 MikroTik Monitor | Phiên bản 1.0.0</span>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="text-white mt-2" id="loadingMessage">Đang tải...</p>
+        </div>
+    </div>
+
+    <!-- Toasts Container -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toastContainer"></div>
+    </div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- WebSocket for real-time updates -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/websocket.js') }}"></script>
+    
+    {% block extra_js %}{% endblock %}
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize system stats
+            updateSystemStats();
+            
+            // Auto-update system stats every 30 seconds
+            setInterval(updateSystemStats, 30000);
+            
+            // Initialize WebSocket connection if authenticated
+            if (isAuthenticated()) {
+                setupWebSocket();
+            }
+            
+            // Setup profile modal
+            document.getElementById('profileLink').addEventListener('click', function(e) {
+                e.preventDefault();
+                showUserProfile();
+            });
+        });
+        
+        // Update system stats in sidebar
+        async function updateSystemStats() {
+            try {
+                const response = await fetch('/api/system/stats', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${AuthManager.getAccessToken()}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update CPU usage
+                    document.getElementById('sidebarCpu').textContent = `${data.cpu_usage || 0}%`;
+                    document.getElementById('sidebarCpuBar').style.width = `${data.cpu_usage || 0}%`;
+                    
+                    // Update Memory usage
+                    document.getElementById('sidebarMemory').textContent = `${data.memory_usage || 0}%`;
+                    document.getElementById('sidebarMemoryBar').style.width = `${data.memory_usage || 0}%`;
+                    
+                    // Update Disk usage
+                    document.getElementById('sidebarDisk').textContent = `${data.disk_usage || 0}%`;
+                    document.getElementById('sidebarDiskBar').style.width = `${data.disk_usage || 0}%`;
+                }
+            } catch (error) {
+                console.error('Error updating system stats:', error);
+            }
+        }
+        
+        // Show user profile
+        function showUserProfile() {
+            const user = AuthManager.getUser();
+            if (!user) return;
+            
+            // Implement this - e.g., open a modal with user profile info
+            alert(`Thông tin tài khoản:\nUsername: ${user.username}\nEmail: ${user.email}\nVai trò: ${user.role}`);
+        }
+    </script>
+</body>
+</html>

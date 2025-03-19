@@ -1,0 +1,518 @@
+{% extends 'base.html' %}
+
+{% block title %}Giám sát - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">
+        <i class="fas fa-chart-line text-info me-2"></i> Giám sát
+        <button id="refresh-monitoring" class="btn btn-sm btn-outline-info float-end">
+            <i class="fas fa-sync-alt"></i> Làm mới
+        </button>
+    </h1>
+
+    <div class="row">
+        <div class="col-lg-3">
+            <!-- Device selection panel -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-primary">Thiết bị</h6>
+                </div>
+                <div class="card-body">
+                    <div id="devices-loading" class="text-center">
+                        <div class="spinner-border spinner-border-sm text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="ms-1">Đang tải thiết bị...</span>
+                    </div>
+                    <div id="devices-list" class="list-group">
+                        <!-- Devices will be listed here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert rules panel -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h6 class="m-0 fw-bold text-primary">Cảnh báo</h6>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addAlertRuleModal">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="alert-rules-loading" class="text-center">
+                        <div class="spinner-border spinner-border-sm text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <span class="ms-1">Đang tải cảnh báo...</span>
+                    </div>
+                    <div id="alert-rules-list">
+                        <!-- Alert rules will be listed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-9">
+            <!-- Overview panel -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 fw-bold text-primary">Tổng quan thiết bị <span id="device-name-header"></span></h6>
+                </div>
+                <div class="card-body">
+                    <div id="overview-loading" class="text-center">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Chọn một thiết bị để xem thông tin</p>
+                    </div>
+                    <div id="device-overview" class="row" style="display: none;">
+                        <div class="col-md-6 mb-4">
+                            <div class="card bg-dark">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-microchip text-info me-2"></i> CPU
+                                    </h5>
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h2 id="cpu-usage" class="mb-0">--%</h2>
+                                            <p id="cpu-load" class="text-muted small mb-0">Loads: --</p>
+                                        </div>
+                                        <div class="text-end">
+                                            <p id="cpu-cores" class="text-muted small mb-0">Cores: --</p>
+                                            <p id="cpu-frequency" class="text-muted small mb-0">Frequency: --</p>
+                                        </div>
+                                    </div>
+                                    <div class="progress mt-2">
+                                        <div id="cpu-progress" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card bg-dark">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-memory text-info me-2"></i> Bộ nhớ
+                                    </h5>
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h2 id="memory-usage" class="mb-0">--%</h2>
+                                            <p id="memory-used" class="text-muted small mb-0">Used: --</p>
+                                        </div>
+                                        <div class="text-end">
+                                            <p id="memory-total" class="text-muted small mb-0">Total: --</p>
+                                            <p id="memory-free" class="text-muted small mb-0">Free: --</p>
+                                        </div>
+                                    </div>
+                                    <div class="progress mt-2">
+                                        <div id="memory-progress" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card bg-dark">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-hdd text-info me-2"></i> Ổ đĩa
+                                    </h5>
+                                    <div class="d-flex justify-content-between">
+                                        <div>
+                                            <h2 id="disk-usage" class="mb-0">--%</h2>
+                                            <p id="disk-used" class="text-muted small mb-0">Used: --</p>
+                                        </div>
+                                        <div class="text-end">
+                                            <p id="disk-total" class="text-muted small mb-0">Total: --</p>
+                                            <p id="disk-free" class="text-muted small mb-0">Free: --</p>
+                                        </div>
+                                    </div>
+                                    <div class="progress mt-2">
+                                        <div id="disk-progress" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card bg-dark">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="fas fa-clock text-info me-2"></i> Thông tin hệ thống
+                                    </h5>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <p class="text-muted small mb-1">Uptime:</p>
+                                            <p id="system-uptime" class="mb-2">--</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="text-muted small mb-1">OS:</p>
+                                            <p id="system-version" class="mb-2">--</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="text-muted small mb-1">Firmware:</p>
+                                            <p id="system-firmware" class="mb-2">--</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="text-muted small mb-1">Model:</p>
+                                            <p id="system-model" class="mb-2">--</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metrics Charts -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 class="m-0 fw-bold text-primary">Biểu đồ CPU</h6>
+                            <div class="dropdown no-arrow">
+                                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                                    <div class="dropdown-header">Thời gian:</div>
+                                    <a class="dropdown-item time-range" href="#" data-hours="1" data-chart="cpu">1 giờ</a>
+                                    <a class="dropdown-item time-range" href="#" data-hours="6" data-chart="cpu">6 giờ</a>
+                                    <a class="dropdown-item time-range" href="#" data-hours="24" data-chart="cpu">24 giờ</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-area">
+                                <canvas id="cpuMetricChart"></canvas>
+                            </div>
+                            <div class="text-center small mt-2" id="cpu-chart-loading" style="display: none;">
+                                <div class="spinner-border spinner-border-sm text-info" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span class="ms-1">Loading data...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 class="m-0 fw-bold text-primary">Biểu đồ bộ nhớ</h6>
+                            <div class="dropdown no-arrow">
+                                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                                    <div class="dropdown-header">Thời gian:</div>
+                                    <a class="dropdown-item time-range" href="#" data-hours="1" data-chart="memory">1 giờ</a>
+                                    <a class="dropdown-item time-range" href="#" data-hours="6" data-chart="memory">6 giờ</a>
+                                    <a class="dropdown-item time-range" href="#" data-hours="24" data-chart="memory">24 giờ</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-area">
+                                <canvas id="memoryMetricChart"></canvas>
+                            </div>
+                            <div class="text-center small mt-2" id="memory-chart-loading" style="display: none;">
+                                <div class="spinner-border spinner-border-sm text-info" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span class="ms-1">Loading data...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                            <h6 class="m-0 fw-bold text-primary">Lưu lượng mạng</h6>
+                            <div class="dropdown no-arrow">
+                                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                                    <div class="dropdown-header">Thời gian:</div>
+                                    <a class="dropdown-item time-range" href="#" data-hours="1" data-chart="traffic">1 giờ</a>
+                                    <a class="dropdown-item time-range" href="#" data-hours="6" data-chart="traffic">6 giờ</a>
+                                    <a class="dropdown-item time-range" href="#" data-hours="24" data-chart="traffic">24 giờ</a>
+                                    <div class="dropdown-divider"></div>
+                                    <div class="dropdown-header">Interface:</div>
+                                    <div id="interface-list">
+                                        <!-- Interface list will be populated dynamically -->
+                                        <a class="dropdown-item" href="#">Loading interfaces...</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-area">
+                                <canvas id="trafficChart"></canvas>
+                            </div>
+                            <div class="text-center small mt-2" id="traffic-chart-loading" style="display: none;">
+                                <div class="spinner-border spinner-border-sm text-info" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span class="ms-1">Loading data...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Interfaces -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow">
+                        <div class="card-header py-3">
+                            <h6 class="m-0 fw-bold text-primary">Interfaces</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Tên</th>
+                                            <th>Loại</th>
+                                            <th>Trạng thái</th>
+                                            <th>MAC</th>
+                                            <th>RX</th>
+                                            <th>TX</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="interfaces-table-body">
+                                        <tr>
+                                            <td colspan="6" class="text-center">Chọn một thiết bị để xem interfaces</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Alert Rule Modal -->
+<div class="modal fade" id="addAlertRuleModal" tabindex="-1" aria-labelledby="addAlertRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addAlertRuleModalLabel">Thêm cảnh báo mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAlertRuleForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="alert_name" class="form-label">Tên cảnh báo</label>
+                            <input type="text" class="form-control" id="alert_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="alert_device" class="form-label">Thiết bị</label>
+                            <select class="form-select" id="alert_device" required>
+                                <option value="">Chọn thiết bị</option>
+                                <!-- Options will be filled dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="alert_metric" class="form-label">Metric</label>
+                            <select class="form-select" id="alert_metric" required>
+                                <option value="">Chọn metric</option>
+                                <option value="cpu_load">CPU Load</option>
+                                <option value="memory_usage">Memory Usage</option>
+                                <option value="disk_usage">Disk Usage</option>
+                                <option value="uptime">Uptime</option>
+                                <option value="client_count">Client Count</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="alert_condition" class="form-label">Điều kiện</label>
+                            <select class="form-select" id="alert_condition" required>
+                                <option value="">Chọn điều kiện</option>
+                                <option value=">">Lớn hơn (>)</option>
+                                <option value=">=">Lớn hơn hoặc bằng (>=)</option>
+                                <option value="<">Nhỏ hơn (<)</option>
+                                <option value="<=">Nhỏ hơn hoặc bằng (<=)</option>
+                                <option value="==">Bằng (==)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="alert_threshold" class="form-label">Ngưỡng</label>
+                            <input type="number" class="form-control" id="alert_threshold" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="alert_duration" class="form-label">Thời gian (giây)</label>
+                            <input type="number" class="form-control" id="alert_duration" value="0">
+                            <div class="form-text">Thời gian kiểm tra trung bình (0 = ngay lập tức)</div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Thông báo</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="alert_email">
+                                <label class="form-check-label" for="alert_email">Email</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="alert_telegram">
+                                <label class="form-check-label" for="alert_telegram">Telegram</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="alert_email_recipients" class="form-label">Email nhận thông báo</label>
+                        <input type="text" class="form-control" id="alert_email_recipients" placeholder="email1@example.com, email2@example.com">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="alert_message" class="form-label">Mẫu tin nhắn</label>
+                        <textarea class="form-control" id="alert_message" rows="3" placeholder="[Device] has high CPU usage: {value}%"></textarea>
+                        <div class="form-text">Để trống để sử dụng mẫu mặc định. Sử dụng {device}, {metric}, {value}, {threshold}, {condition} để thay thế giá trị.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveAlertRuleBtn">Lưu cảnh báo</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Alert Rule Modal -->
+<div class="modal fade" id="editAlertRuleModal" tabindex="-1" aria-labelledby="editAlertRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editAlertRuleModalLabel">Chỉnh sửa cảnh báo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editAlertRuleForm">
+                    <input type="hidden" id="edit_alert_id">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="edit_alert_name" class="form-label">Tên cảnh báo</label>
+                            <input type="text" class="form-control" id="edit_alert_name" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="edit_alert_device" class="form-label">Thiết bị</label>
+                            <select class="form-select" id="edit_alert_device" required>
+                                <option value="">Chọn thiết bị</option>
+                                <!-- Options will be filled dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="edit_alert_metric" class="form-label">Metric</label>
+                            <select class="form-select" id="edit_alert_metric" required>
+                                <option value="">Chọn metric</option>
+                                <option value="cpu_load">CPU Load</option>
+                                <option value="memory_usage">Memory Usage</option>
+                                <option value="disk_usage">Disk Usage</option>
+                                <option value="uptime">Uptime</option>
+                                <option value="client_count">Client Count</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="edit_alert_condition" class="form-label">Điều kiện</label>
+                            <select class="form-select" id="edit_alert_condition" required>
+                                <option value="">Chọn điều kiện</option>
+                                <option value=">">Lớn hơn (>)</option>
+                                <option value=">=">Lớn hơn hoặc bằng (>=)</option>
+                                <option value="<">Nhỏ hơn (<)</option>
+                                <option value="<=">Nhỏ hơn hoặc bằng (<=)</option>
+                                <option value="==">Bằng (==)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="edit_alert_threshold" class="form-label">Ngưỡng</label>
+                            <input type="number" class="form-control" id="edit_alert_threshold" required>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="edit_alert_duration" class="form-label">Thời gian (giây)</label>
+                            <input type="number" class="form-control" id="edit_alert_duration" value="0">
+                            <div class="form-text">Thời gian kiểm tra trung bình (0 = ngay lập tức)</div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Thông báo</label>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="edit_alert_email">
+                                <label class="form-check-label" for="edit_alert_email">Email</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="edit_alert_telegram">
+                                <label class="form-check-label" for="edit_alert_telegram">Telegram</label>
+                            </div>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="edit_alert_enabled" checked>
+                                <label class="form-check-label" for="edit_alert_enabled">Kích hoạt cảnh báo</label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_alert_email_recipients" class="form-label">Email nhận thông báo</label>
+                        <input type="text" class="form-control" id="edit_alert_email_recipients" placeholder="email1@example.com, email2@example.com">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_alert_message" class="form-label">Mẫu tin nhắn</label>
+                        <textarea class="form-control" id="edit_alert_message" rows="3" placeholder="[Device] has high CPU usage: {value}%"></textarea>
+                        <div class="form-text">Để trống để sử dụng mẫu mặc định. Sử dụng {device}, {metric}, {value}, {threshold}, {condition} để thay thế giá trị.</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger me-auto" id="deleteAlertRuleBtn">Xóa cảnh báo</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="updateAlertRuleBtn">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Alert Rule Delete Confirmation Modal -->
+<div class="modal fade" id="deleteAlertRuleConfirmModal" tabindex="-1" aria-labelledby="deleteAlertRuleConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteAlertRuleConfirmModalLabel">Xác nhận xóa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bạn có chắc chắn muốn xóa cảnh báo "<span id="delete-alert-rule-name"></span>"?</p>
+                <p class="text-danger">Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteAlertRuleBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/monitoring.js') }}"></script>
+{% endblock %}

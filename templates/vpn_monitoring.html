@@ -1,0 +1,241 @@
+{% extends 'base.html' %}
+
+{% block title %}VPN Monitoring - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="mb-4">
+        <i class="fas fa-lock text-info me-2"></i> VPN Monitoring
+        <button id="refresh-vpn" class="btn btn-sm btn-outline-info float-end">
+            <i class="fas fa-sync-alt"></i> Làm mới
+        </button>
+    </h1>
+
+    <!-- Device selection -->
+    <div class="row mb-4">
+        <div class="col-md-6 col-xl-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 fw-bold text-primary">Chọn thiết bị</h6>
+                </div>
+                <div class="card-body">
+                    <select id="vpn-device-select" class="form-select">
+                        <option value="">Chọn thiết bị</option>
+                        <!-- Device options will be loaded here -->
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="vpn-loading" class="text-center my-5" style="display: none;">
+        <div class="spinner-border text-info" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Đang tải dữ liệu VPN...</p>
+    </div>
+
+    <!-- Empty state -->
+    <div id="vpn-empty-state" class="text-center my-5">
+        <i class="fas fa-lock text-muted fa-3x mb-3"></i>
+        <h4>Không có dữ liệu VPN</h4>
+        <p class="text-muted">Vui lòng chọn một thiết bị để xem dữ liệu VPN</p>
+    </div>
+
+    <!-- VPN Content (initially hidden) -->
+    <div id="vpn-content" style="display: none;">
+        <!-- Overview Cards -->
+        <div class="row mb-4">
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-primary shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-primary text-uppercase mb-1">VPN Type</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800" id="vpn-type">--</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-shield-alt fa-2x text-muted"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-info shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-info text-uppercase mb-1">Active Connections</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800" id="vpn-connections">0</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-users fa-2x text-muted"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-success shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-success text-uppercase mb-1">Encryption</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800" id="vpn-encryption">--</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-key fa-2x text-muted"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-md-6 mb-4">
+                <div class="card border-left-warning shadow h-100 py-2">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs fw-bold text-warning text-uppercase mb-1">Authentication</div>
+                                <div class="h5 mb-0 fw-bold text-gray-800" id="vpn-auth">--</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="fas fa-user-lock fa-2x text-muted"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Connections -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 fw-bold text-primary">Kết nối VPN đang hoạt động</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="active-connections-table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Remote Address</th>
+                                        <th>Local Address</th>
+                                        <th>Uptime</th>
+                                        <th>Encryption</th>
+                                        <th>TX/RX</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="active-connections-body">
+                                    <tr>
+                                        <td colspan="6" class="text-center">No active connections</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VPN Configuration -->
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 fw-bold text-primary">Cấu hình VPN</h6>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row" id="vpn-config">
+                            <dt class="col-sm-4">Loại</dt>
+                            <dd class="col-sm-8" id="config-type">--</dd>
+
+                            <dt class="col-sm-4">Interface</dt>
+                            <dd class="col-sm-8" id="config-interface">--</dd>
+
+                            <dt class="col-sm-4">Mạng VPN</dt>
+                            <dd class="col-sm-8" id="config-network">--</dd>
+
+                            <dt class="col-sm-4">Mã hóa</dt>
+                            <dd class="col-sm-8" id="config-encryption">--</dd>
+
+                            <dt class="col-sm-4">Xác thực</dt>
+                            <dd class="col-sm-8" id="config-auth">--</dd>
+
+                            <dt class="col-sm-4">MTU</dt>
+                            <dd class="col-sm-8" id="config-mtu">--</dd>
+
+                            <dt class="col-sm-4">Keepalive</dt>
+                            <dd class="col-sm-8" id="config-keepalive">--</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 fw-bold text-primary">Người dùng VPN</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="vpn-users-table">
+                                <thead>
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Last Login</th>
+                                        <th>Status</th>
+                                        <th>Comment</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vpn-users-body">
+                                    <tr>
+                                        <td colspan="4" class="text-center">No users found</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Traffic Chart -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 fw-bold text-primary">Lưu lượng VPN</h6>
+                        <div class="dropdown no-arrow">
+                            <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                            </a>
+                            <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" aria-labelledby="dropdownMenuLink">
+                                <div class="dropdown-header">Thời gian:</div>
+                                <a class="dropdown-item vpn-time-range" href="#" data-hours="1">1 giờ</a>
+                                <a class="dropdown-item vpn-time-range" href="#" data-hours="6">6 giờ</a>
+                                <a class="dropdown-item vpn-time-range" href="#" data-hours="24">24 giờ</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-area">
+                            <canvas id="vpnTrafficChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/vpn-monitoring.js') }}"></script>
+{% endblock %}

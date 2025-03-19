@@ -1,0 +1,512 @@
+{% extends "base.html" %}
+
+{% block title %}Giám sát thiết bị - MikroTik Monitor{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        width: 100%;
+        height: 300px;
+        position: relative;
+    }
+    .widget-card {
+        height: 100%;
+        transition: all 0.3s ease;
+    }
+    .widget-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    .alert-status-pending {
+        background-color: #fff3cd;
+        border-color: #ffecb5;
+    }
+    .alert-status-acknowledged {
+        background-color: #d1e7dd;
+        border-color: #badbcc;
+    }
+    .alert-status-resolved {
+        background-color: #f8f9fa;
+        border-color: #e9ecef;
+    }
+    .status-badge {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    .status-critical {
+        background-color: #dc3545;
+    }
+    .status-warning {
+        background-color: #ffc107;
+    }
+    .status-info {
+        background-color: #0dcaf0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3"><i class="fas fa-chart-line"></i> Giám sát</h2>
+        <div>
+            <button class="btn btn-sm btn-success me-2" data-bs-toggle="modal" data-bs-target="#addAlertRuleModal">
+                <i class="fas fa-plus"></i> Thêm cảnh báo mới
+            </button>
+            <button class="btn btn-sm btn-primary" id="refreshMonitoringBtn">
+                <i class="fas fa-sync-alt"></i> Làm mới
+            </button>
+        </div>
+    </div>
+
+    <!-- Device Selection Row -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card shadow h-100">
+                <div class="card-header">
+                    <h6 class="mb-0">Chọn thiết bị</h6>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <select class="form-select" id="deviceSelect">
+                            <option value="">-- Chọn thiết bị --</option>
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                    <div id="deviceDetails" class="mt-3" style="display: none;">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <th>Trạng thái:</th>
+                                    <td><span id="deviceStatus"></span></td>
+                                </tr>
+                                <tr>
+                                    <th>IP:</th>
+                                    <td id="deviceIP"></td>
+                                </tr>
+                                <tr>
+                                    <th>Model:</th>
+                                    <td id="deviceModel"></td>
+                                </tr>
+                                <tr>
+                                    <th>RouterOS:</th>
+                                    <td id="deviceVersion"></td>
+                                </tr>
+                                <tr>
+                                    <th>Uptime:</th>
+                                    <td id="deviceUptime"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="deviceInterfacesContainer" class="mt-3" style="display: none;">
+                        <label class="form-label">Interface:</label>
+                        <select class="form-select" id="interfaceSelect">
+                            <option value="">Tất cả interfaces</option>
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card shadow h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Tổng quan tài nguyên</h6>
+                    <div class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-outline-secondary active" data-time="6">6 giờ</button>
+                        <button type="button" class="btn btn-outline-secondary" data-time="12">12 giờ</button>
+                        <button type="button" class="btn btn-outline-secondary" data-time="24">24 giờ</button>
+                        <button type="button" class="btn btn-outline-secondary" data-time="168">7 ngày</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="resourceOverview">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="card border-primary widget-card mb-3">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-primary">CPU</h6>
+                                        <h2 id="cpuValue">--</h2>
+                                        <div class="progress">
+                                            <div class="progress-bar" id="cpuProgressBar" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        <small id="cpuTrend" class="text-muted"></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-success widget-card mb-3">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-success">Memory</h6>
+                                        <h2 id="memoryValue">--</h2>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-success" id="memoryProgressBar" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        <small id="memoryTrend" class="text-muted"></small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-info widget-card mb-3">
+                                    <div class="card-body text-center">
+                                        <h6 class="text-info">Disk</h6>
+                                        <h2 id="diskValue">--</h2>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-info" id="diskProgressBar" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        <small id="diskTrend" class="text-muted"></small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="resourcePlaceholder" class="text-center p-5">
+                        <i class="fas fa-chart-line fa-4x text-muted mb-3"></i>
+                        <p>Vui lòng chọn thiết bị để xem dữ liệu giám sát</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metrics Charts Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow h-100">
+                <div class="card-header">
+                    <h6 class="mb-0">CPU Usage</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow h-100">
+                <div class="card-header">
+                    <h6 class="mb-0">Memory Usage</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="memoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Traffic Charts Row -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h6 class="mb-0">Network Traffic</h6>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Rules and Recent Alerts Row -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Quy tắc cảnh báo</h6>
+                    <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addAlertRuleModal">
+                        <i class="fas fa-plus"></i> Thêm quy tắc
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="alertRulesTable">
+                            <thead>
+                                <tr>
+                                    <th>Tên</th>
+                                    <th>Thiết bị</th>
+                                    <th>Metric</th>
+                                    <th>Điều kiện</th>
+                                    <th>Ngưỡng</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Alert rules will be loaded here -->
+                                <tr>
+                                    <td colspan="6" class="text-center">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        Đang tải dữ liệu...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card shadow h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Cảnh báo gần đây</h6>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="alertFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            Filter
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="alertFilterDropdown">
+                            <li><a class="dropdown-item" href="#" data-filter="all">Tất cả</a></li>
+                            <li><a class="dropdown-item" href="#" data-filter="pending">Đang chờ</a></li>
+                            <li><a class="dropdown-item" href="#" data-filter="acknowledged">Đã xác nhận</a></li>
+                            <li><a class="dropdown-item" href="#" data-filter="resolved">Đã giải quyết</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="recentAlertsList">
+                        <!-- Recent alerts will be loaded here -->
+                        <div class="list-group-item text-center">
+                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            Đang tải dữ liệu...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Alert Rule Modal -->
+<div class="modal fade" id="addAlertRuleModal" tabindex="-1" aria-labelledby="addAlertRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addAlertRuleModalLabel">Thêm quy tắc cảnh báo mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addAlertRuleForm">
+                    <div class="mb-3">
+                        <label for="ruleName" class="form-label">Tên quy tắc</label>
+                        <input type="text" class="form-control" id="ruleName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ruleDevice" class="form-label">Thiết bị</label>
+                        <select class="form-select" id="ruleDevice" required>
+                            <option value="">-- Chọn thiết bị --</option>
+                            <option value="all">Tất cả thiết bị</option>
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ruleMetric" class="form-label">Metric</label>
+                        <select class="form-select" id="ruleMetric" required>
+                            <option value="">-- Chọn metric --</option>
+                            <option value="cpu_load">CPU Load</option>
+                            <option value="memory_usage">Memory Usage</option>
+                            <option value="disk_usage">Disk Usage</option>
+                            <option value="uptime">Uptime</option>
+                            <option value="interface_status">Interface Status</option>
+                            <option value="traffic_in">Traffic In</option>
+                            <option value="traffic_out">Traffic Out</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="interfaceSelectContainer" style="display: none;">
+                        <label for="ruleInterface" class="form-label">Interface</label>
+                        <select class="form-select" id="ruleInterface">
+                            <option value="">-- Chọn interface --</option>
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ruleCondition" class="form-label">Điều kiện</label>
+                        <select class="form-select" id="ruleCondition" required>
+                            <option value="gt">Lớn hơn (>)</option>
+                            <option value="lt">Nhỏ hơn (<)</option>
+                            <option value="eq">Bằng (=)</option>
+                            <option value="ne">Khác (!=)</option>
+                            <option value="change">Thay đổi</option>
+                            <option value="down">Down</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="thresholdContainer">
+                        <label for="ruleThreshold" class="form-label">Ngưỡng</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="ruleThreshold" required>
+                            <span class="input-group-text" id="thresholdUnit">%</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ruleSeverity" class="form-label">Mức độ nghiêm trọng</label>
+                        <select class="form-select" id="ruleSeverity" required>
+                            <option value="info">Info</option>
+                            <option value="warning">Warning</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="ruleMessage" class="form-label">Tin nhắn cảnh báo</label>
+                        <textarea class="form-control" id="ruleMessage" rows="2"></textarea>
+                        <small class="form-text text-muted">Bạn có thể sử dụng các biến: {device}, {metric}, {value}, {threshold}</small>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="ruleEmailNotify">
+                            <label class="form-check-label" for="ruleEmailNotify">
+                                Gửi thông báo email
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveAlertRuleBtn">Lưu quy tắc</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Alert Rule Modal -->
+<div class="modal fade" id="editAlertRuleModal" tabindex="-1" aria-labelledby="editAlertRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editAlertRuleModalLabel">Sửa quy tắc cảnh báo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editAlertRuleForm">
+                    <input type="hidden" id="editRuleId">
+                    <div class="mb-3">
+                        <label for="editRuleName" class="form-label">Tên quy tắc</label>
+                        <input type="text" class="form-control" id="editRuleName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRuleDevice" class="form-label">Thiết bị</label>
+                        <select class="form-select" id="editRuleDevice" required>
+                            <option value="">-- Chọn thiết bị --</option>
+                            <option value="all">Tất cả thiết bị</option>
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRuleMetric" class="form-label">Metric</label>
+                        <select class="form-select" id="editRuleMetric" required>
+                            <option value="">-- Chọn metric --</option>
+                            <option value="cpu_load">CPU Load</option>
+                            <option value="memory_usage">Memory Usage</option>
+                            <option value="disk_usage">Disk Usage</option>
+                            <option value="uptime">Uptime</option>
+                            <option value="interface_status">Interface Status</option>
+                            <option value="traffic_in">Traffic In</option>
+                            <option value="traffic_out">Traffic Out</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="editInterfaceSelectContainer" style="display: none;">
+                        <label for="editRuleInterface" class="form-label">Interface</label>
+                        <select class="form-select" id="editRuleInterface">
+                            <option value="">-- Chọn interface --</option>
+                            <!-- Options will be populated by JS -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRuleCondition" class="form-label">Điều kiện</label>
+                        <select class="form-select" id="editRuleCondition" required>
+                            <option value="gt">Lớn hơn (>)</option>
+                            <option value="lt">Nhỏ hơn (<)</option>
+                            <option value="eq">Bằng (=)</option>
+                            <option value="ne">Khác (!=)</option>
+                            <option value="change">Thay đổi</option>
+                            <option value="down">Down</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="editThresholdContainer">
+                        <label for="editRuleThreshold" class="form-label">Ngưỡng</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="editRuleThreshold" required>
+                            <span class="input-group-text" id="editThresholdUnit">%</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRuleSeverity" class="form-label">Mức độ nghiêm trọng</label>
+                        <select class="form-select" id="editRuleSeverity" required>
+                            <option value="info">Info</option>
+                            <option value="warning">Warning</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRuleMessage" class="form-label">Tin nhắn cảnh báo</label>
+                        <textarea class="form-control" id="editRuleMessage" rows="2"></textarea>
+                        <small class="form-text text-muted">Bạn có thể sử dụng các biến: {device}, {metric}, {value}, {threshold}</small>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="editRuleEmailNotify">
+                            <label class="form-check-label" for="editRuleEmailNotify">
+                                Gửi thông báo email
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="updateAlertRuleBtn">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Alert Rule Modal -->
+<div class="modal fade" id="deleteAlertRuleModal" tabindex="-1" aria-labelledby="deleteAlertRuleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteAlertRuleModalLabel">Xác nhận xóa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bạn có chắc chắn muốn xóa quy tắc cảnh báo <span id="deleteRuleName" class="fw-bold"></span>?</p>
+                <input type="hidden" id="deleteRuleId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteRuleBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/monitoring.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize monitoring page
+        initializeMonitoring();
+        
+        // Handle refresh button
+        document.getElementById('refreshMonitoringBtn').addEventListener('click', function() {
+            const deviceId = document.getElementById('deviceSelect').value;
+            if (deviceId) {
+                loadMetrics(deviceId);
+            }
+        });
+    });
+</script>
+{% endblock %}

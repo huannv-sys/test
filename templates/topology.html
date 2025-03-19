@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Network Topology{% endblock %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/network-map.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/network-map-3d.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Network Topology</h5>
+                    <div class="btn-group view-mode-toggle" role="group">
+                        <button type="button" class="btn btn-sm btn-primary active" id="view-2d-btn">2D View</button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="view-3d-btn">3D View</button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="network-container" class="position-relative">
+                        <div id="network-map" class="network-map-container active"></div>
+                        <div id="network-map-3d" class="network-map-container"></div>
+                        
+                        <div id="map-controls" class="map-controls">
+                            <button id="zoom-in-btn" class="btn btn-sm btn-light" title="Zoom In"><i class="fa fa-plus"></i></button>
+                            <button id="zoom-out-btn" class="btn btn-sm btn-light" title="Zoom Out"><i class="fa fa-minus"></i></button>
+                            <button id="reset-zoom-btn" class="btn btn-sm btn-light" title="Reset Zoom"><i class="fa fa-expand"></i></button>
+                            <button id="refresh-map-btn" class="btn btn-sm btn-light" title="Refresh Map"><i class="fa fa-sync"></i></button>
+                        </div>
+
+                        <div id="device-details-panel" class="device-details-panel d-none">
+                            <div class="card shadow-sm">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0" id="details-device-name">Device Details</h6>
+                                    <button type="button" class="btn-close btn-close-white" id="close-details-btn"></button>
+                                </div>
+                                <div class="card-body device-details-body">
+                                    <div class="row">
+                                        <div class="col-12 mb-3">
+                                            <div class="device-status-indicator" id="details-device-status"></div>
+                                        </div>
+                                    </div>
+                                    <div class="details-section">
+                                        <h6 class="details-heading">Device Information</h6>
+                                        <table class="table table-sm details-table">
+                                            <tbody>
+                                                <tr>
+                                                    <th>Model</th>
+                                                    <td id="details-model">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>IP Address</th>
+                                                    <td id="details-ip">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Location</th>
+                                                    <td id="details-location">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Uptime</th>
+                                                    <td id="details-uptime">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Version</th>
+                                                    <td id="details-version">-</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="details-section">
+                                        <h6 class="details-heading">Resource Usage</h6>
+                                        <div class="row">
+                                            <div class="col-6">
+                                                <div class="resource-gauge">
+                                                    <div class="gauge-title">CPU</div>
+                                                    <div class="gauge-value" id="details-cpu">0%</div>
+                                                    <div class="progress">
+                                                        <div class="progress-bar" id="details-cpu-bar" role="progressbar" style="width: 0%"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="resource-gauge">
+                                                    <div class="gauge-title">Memory</div>
+                                                    <div class="gauge-value" id="details-memory">0%</div>
+                                                    <div class="progress">
+                                                        <div class="progress-bar" id="details-memory-bar" role="progressbar" style="width: 0%"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="details-section">
+                                        <h6 class="details-heading">Connected Devices</h6>
+                                        <div id="details-connected-count">0 devices</div>
+                                    </div>
+                                    <div class="details-section">
+                                        <h6 class="details-heading">Interface Traffic</h6>
+                                        <div id="details-traffic">No traffic data available</div>
+                                    </div>
+                                    <div class="mt-3">
+                                        <a href="#" class="btn btn-sm btn-outline-primary" id="details-view-btn">View Details</a>
+                                        <a href="#" class="btn btn-sm btn-outline-secondary" id="details-monitor-btn">Monitor</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div id="map-status">Ready</div>
+                        <div id="map-legend" class="d-flex align-items-center">
+                            <span class="legend-item">
+                                <span class="legend-color" style="background-color: #4caf50;"></span>
+                                <span class="legend-label">Router</span>
+                            </span>
+                            <span class="legend-item">
+                                <span class="legend-color" style="background-color: #2196f3;"></span>
+                                <span class="legend-label">Switch</span>
+                            </span>
+                            <span class="legend-item">
+                                <span class="legend-color" style="background-color: #ff9800;"></span>
+                                <span class="legend-label">AP</span>
+                            </span>
+                            <span class="legend-item">
+                                <span class="legend-color" style="background-color: #e91e63;"></span>
+                                <span class="legend-label">Client</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/FontLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/geometries/TextGeometry.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.umd.js"></script>
+<!-- 3D Network map components -->
+<script src="{{ url_for('static', filename='js/3d-network-map/core.js') }}"></script>
+<script src="{{ url_for('static', filename='js/3d-network-map/demo-data.js') }}"></script>
+<!-- Network map scripts -->
+<script src="{{ url_for('static', filename='js/network-map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/network-map-3d.js') }}"></script>
+{% endblock %}

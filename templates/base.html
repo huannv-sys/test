@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="vi" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{% block title %}{{ app_name }}{% endblock %}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Additional CSS -->
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <h3>{{ app_name }}</h3>
+                <div class="version-info">v{{ app_version }}</div>
+            </div>
+
+            <ul class="list-unstyled components">
+                <li class="nav-item{% if request.path == '/dashboard' %} active{% endif %}">
+                    <a href="{{ url_for('dashboard') }}" class="nav-link">
+                        <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item{% if request.path == '/devices' %} active{% endif %}">
+                    <a href="{{ url_for('devices') }}" class="nav-link">
+                        <i class="fas fa-server me-2"></i> Thiết bị
+                    </a>
+                </li>
+                <li class="nav-item{% if request.path == '/monitoring' %} active{% endif %}">
+                    <a href="{{ url_for('monitoring') }}" class="nav-link">
+                        <i class="fas fa-chart-line me-2"></i> Giám sát
+                    </a>
+                </li>
+                <li class="nav-item{% if request.path == '/topology' %} active{% endif %}">
+                    <a href="{{ url_for('topology') }}" class="nav-link">
+                        <i class="fas fa-project-diagram me-2"></i> Network Map
+                    </a>
+                </li>
+                <li class="nav-item{% if request.path == '/vpn_monitoring' %} active{% endif %}">
+                    <a href="{{ url_for('vpn_monitoring') }}" class="nav-link">
+                        <i class="fas fa-lock me-2"></i> VPN
+                    </a>
+                </li>
+                {% if current_user.is_authenticated and current_user.role == 'admin' %}
+                <li class="nav-item{% if request.path == '/users' %} active{% endif %}">
+                    <a href="{{ url_for('users') }}" class="nav-link">
+                        <i class="fas fa-users me-2"></i> Người dùng
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item{% if request.path == '/settings' %} active{% endif %}">
+                    <a href="{{ url_for('settings') }}" class="nav-link">
+                        <i class="fas fa-cog me-2"></i> Cài đặt
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-footer">
+                {% if current_user.is_authenticated %}
+                <div class="user-info">
+                    <i class="fas fa-user me-2"></i> {{ current_user.username }}
+                </div>
+                <a href="{{ url_for('logout') }}" class="logout-link">
+                    <i class="fas fa-sign-out-alt me-2"></i> Đăng xuất
+                </a>
+                {% endif %}
+            </div>
+        </nav>
+
+        <!-- Page Content -->
+        <div id="content">
+            <!-- Navbar -->
+            <nav class="navbar navbar-expand-lg navbar-dark">
+                <div class="container-fluid">
+                    <button type="button" id="sidebarCollapse" class="btn btn-outline-light">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="ms-auto d-flex">
+                        {% if alert_count > 0 %}
+                        <a href="{{ url_for('monitoring') }}?alerts=new" class="btn btn-danger me-2">
+                            <i class="fas fa-bell"></i> <span class="badge bg-light text-dark">{{ alert_count }}</span>
+                        </a>
+                        {% endif %}
+                        <span class="time-display">
+                            <i class="fas fa-clock me-1"></i> 
+                            <span id="current-time">{{ current_time|default('--:--:--') }}</span>
+                        </span>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main Content -->
+            <main>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+            </main>
+
+            <!-- Footer -->
+            <footer class="footer">
+                <div class="container-fluid">
+                    <span>&copy; {{ now.year }} {{ app_name }}. Phát triển bởi <a href="#" class="text-info">Your Company</a></span>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toast-container"></div>
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    
+    <!-- Main JS -->
+    <script src="{{ url_for('static', filename='js/api_client.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+        // Initialize sidebar toggle
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sidebar toggle
+            document.getElementById('sidebarCollapse').addEventListener('click', function() {
+                document.getElementById('sidebar').classList.toggle('active');
+                document.getElementById('content').classList.toggle('active');
+            });
+            
+            // Update time every second
+            function updateTime() {
+                const now = new Date();
+                const timeElement = document.getElementById('current-time');
+                if (timeElement) {
+                    timeElement.textContent = now.toLocaleTimeString();
+                }
+            }
+            
+            // Initial time update
+            updateTime();
+            
+            // Update time every second
+            setInterval(updateTime, 1000);
+            
+            // Close alerts automatically
+            document.querySelectorAll('.alert').forEach(function(alert) {
+                setTimeout(function() {
+                    const closeBtn = alert.querySelector('.btn-close');
+                    if (closeBtn) {
+                        closeBtn.click();
+                    }
+                }, 5000);
+            });
+        });
+    </script>
+    
+    <!-- Additional JS -->
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

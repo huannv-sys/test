@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}Topology Mạng - MikroTik Monitor{% endblock %}
+
+{% block extra_css %}
+<style>
+    #networkMap {
+        width: 100%;
+        height: 700px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        background-color: #f8f9fa;
+        position: relative;
+    }
+    .map-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+    }
+    .map-legend {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        background-color: rgba(255, 255, 255, 0.8);
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 10px;
+        z-index: 1000;
+        font-size: 12px;
+    }
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+    .legend-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    .map-controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+    }
+    .map-control-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: 4px;
+        background-color: white;
+        border: 1px solid #ddd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    .map-control-btn:hover {
+        background-color: #f8f9fa;
+    }
+    .device-tooltip {
+        position: absolute;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        z-index: 1001;
+        pointer-events: none;
+        max-width: 250px;
+    }
+    #deviceDetails {
+        border-left: 4px solid #0078d7;
+    }
+    #deviceDetails.hidden {
+        transform: translateX(100%);
+    }
+    .node-color-router {
+        background-color: #0078d7;
+    }
+    .node-color-switch {
+        background-color: #28a745;
+    }
+    .node-color-wireless {
+        background-color: #ffc107;
+    }
+    .node-color-other {
+        background-color: #6c757d;
+    }
+    .node-color-client {
+        background-color: #17a2b8;
+    }
+    .toggle-3d {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 1000;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3"><i class="fas fa-project-diagram"></i> Topology mạng</h2>
+        <div>
+            <button class="btn btn-sm btn-secondary me-2" id="toggle3DView">
+                <i class="fas fa-cube"></i> Chế độ 3D
+            </button>
+            <button class="btn btn-sm btn-primary" id="refreshTopologyBtn">
+                <i class="fas fa-sync-alt"></i> Làm mới
+            </button>
+        </div>
+    </div>
+
+    <!-- Network Map Container -->
+    <div class="card shadow mb-4">
+        <div class="card-body p-0">
+            <div id="networkMapContainer" class="position-relative">
+                <!-- 2D Network Map -->
+                <div id="networkMap">
+                    <div class="map-loading" id="mapLoading">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Đang tải dữ liệu topology...</p>
+                    </div>
+                    
+                    <!-- Legend -->
+                    <div class="map-legend" id="mapLegend">
+                        <h6 class="mb-2">Chú thích</h6>
+                        <div class="legend-item">
+                            <div class="legend-color node-color-router"></div>
+                            <span>Router</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color node-color-switch"></div>
+                            <span>Switch</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color node-color-wireless"></div>
+                            <span>Access Point</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color node-color-client"></div>
+                            <span>Client</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color node-color-other"></div>
+                            <span>Other</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Controls -->
+                    <div class="map-controls">
+                        <div class="map-control-btn" id="zoomInBtn" title="Phóng to">
+                            <i class="fas fa-plus"></i>
+                        </div>
+                        <div class="map-control-btn" id="zoomOutBtn" title="Thu nhỏ">
+                            <i class="fas fa-minus"></i>
+                        </div>
+                        <div class="map-control-btn" id="resetZoomBtn" title="Khôi phục zoom">
+                            <i class="fas fa-expand"></i>
+                        </div>
+                        <div class="map-control-btn" id="fitGraphBtn" title="Hiển thị tất cả">
+                            <i class="fas fa-compress-arrows-alt"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 3D Network Map (Initially Hidden) -->
+                <div id="networkMap3D" style="display: none; width: 100%; height: 700px;">
+                    <!-- 3D view will be rendered here with Three.js -->
+                </div>
+                
+                <!-- Empty State -->
+                <div id="emptyTopology" style="display: none;" class="map-loading">
+                    <i class="fas fa-project-diagram fa-4x text-muted mb-3"></i>
+                    <h4>Không có dữ liệu topology</h4>
+                    <p>Hiện không có đủ thiết bị để xây dựng topology mạng.</p>
+                    <button class="btn btn-primary mt-2" id="discoverTopologyBtn">
+                        <i class="fas fa-search"></i> Tìm kiếm thiết bị
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Side Panel for Device Details (Initially Hidden) -->
+    <div id="deviceDetails" class="card shadow position-fixed top-0 end-0 h-100 transition-transform" style="width: 350px; z-index: 1030; transform: translateX(100%); transition: transform 0.3s ease;">
+        <div class="card-header d-flex justify-content-between align-items-center bg-light">
+            <h5 class="mb-0" id="detailsDeviceName">Device Details</h5>
+            <button type="button" class="btn-close" id="closeDetailsBtn"></button>
+        </div>
+        <div class="card-body overflow-auto">
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">Status</h6>
+                    <span class="badge bg-success" id="detailsDeviceStatus">Online</span>
+                </div>
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <th>Model:</th>
+                            <td id="detailsDeviceModel">-</td>
+                        </tr>
+                        <tr>
+                            <th>IP Address:</th>
+                            <td id="detailsDeviceIP">-</td>
+                        </tr>
+                        <tr>
+                            <th>RouterOS:</th>
+                            <td id="detailsDeviceVersion">-</td>
+                        </tr>
+                        <tr>
+                            <th>Uptime:</th>
+                            <td id="detailsDeviceUptime">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="mb-3">
+                <h6>Resource Usage</h6>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>CPU</span>
+                        <span id="detailsDeviceCPU">0%</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar" id="detailsCPUBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Memory</span>
+                        <span id="detailsDeviceMemory">0%</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-success" id="detailsMemoryBar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <h6>Interfaces</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Traffic</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailsInterfacesTable">
+                            <tr>
+                                <td colspan="3" class="text-center">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div>
+                <h6>Connections</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead>
+                            <tr>
+                                <th>Connected to</th>
+                                <th>Interface</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detailsConnectionsTable">
+                            <tr>
+                                <td colspan="2" class="text-center">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <div class="d-flex justify-content-between">
+                <a href="#" class="btn btn-sm btn-outline-primary" id="detailsViewMonitoringBtn">
+                    <i class="fas fa-chart-line"></i> Xem giám sát
+                </a>
+                <a href="#" class="btn btn-sm btn-outline-secondary" id="detailsViewDeviceBtn">
+                    <i class="fas fa-server"></i> Chi tiết thiết bị
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrcodeModal" tabindex="-1" aria-labelledby="qrcodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrcodeModalLabel">QR Code thiết bị</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="qrcodeImage" src="" alt="QR Code" class="img-fluid">
+                <p class="mt-2">Quét mã QR để xem thông tin nhanh về thiết bị</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="downloadQRBtn">
+                    <i class="fas fa-download"></i> Tải xuống
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- D3.js for 2D network visualization -->
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<!-- Three.js for 3D network visualization -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+
+<script src="{{ url_for('static', filename='js/network-map.js') }}"></script>
+<script src="{{ url_for('static', filename='js/network-map-3d.js') }}"></script>
+<script src="{{ url_for('static', filename='js/qrcodes.js') }}"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize 2D network map
+        initNetworkMap();
+        
+        // Toggle between 2D and 3D views
+        document.getElementById('toggle3DView').addEventListener('click', function() {
+            const map2D = document.getElementById('networkMap');
+            const map3D = document.getElementById('networkMap3D');
+            
+            if (map2D.style.display !== 'none') {
+                map2D.style.display = 'none';
+                map3D.style.display = 'block';
+                this.innerHTML = '<i class="fas fa-map"></i> Chế độ 2D';
+                // Initialize 3D map if not already done
+                if (!window.networkMap3DInitialized) {
+                    initNetworkMap3D();
+                    window.networkMap3DInitialized = true;
+                }
+            } else {
+                map2D.style.display = 'block';
+                map3D.style.display = 'none';
+                this.innerHTML = '<i class="fas fa-cube"></i> Chế độ 3D';
+            }
+        });
+        
+        // Refresh topology
+        document.getElementById('refreshTopologyBtn').addEventListener('click', function() {
+            refreshNetworkMap();
+        });
+        
+        // Close details panel
+        document.getElementById('closeDetailsBtn').addEventListener('click', function() {
+            document.getElementById('deviceDetails').style.transform = 'translateX(100%)';
+        });
+    });
+</script>
+{% endblock %}

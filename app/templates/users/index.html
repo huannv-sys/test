@@ -1,0 +1,403 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý người dùng - MikroTik Monitor{% endblock %}
+
+{% block extra_css %}
+<style>
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 500;
+    }
+    
+    .bg-avatar-admin {
+        background-color: #0d6efd;
+    }
+    
+    .bg-avatar-user {
+        background-color: #6c757d;
+    }
+    
+    .bg-avatar-operator {
+        background-color: #ffc107;
+    }
+    
+    .user-status-active {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #28a745;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .user-status-inactive {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background-color: #dc3545;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .user-card {
+        transition: all 0.3s ease;
+    }
+    
+    .user-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="h3"><i class="fas fa-users"></i> Quản lý người dùng</h2>
+        <div class="d-flex">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-outline-secondary" id="gridViewBtn">
+                    <i class="fas fa-th-large"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary active" id="listViewBtn">
+                    <i class="fas fa-list"></i>
+                </button>
+            </div>
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                <i class="fas fa-user-plus"></i> Thêm người dùng
+            </button>
+        </div>
+    </div>
+
+    <!-- Search and Filter Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" id="userSearch" placeholder="Tìm kiếm người dùng...">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="roleFilter">
+                <option value="all">Tất cả vai trò</option>
+                <option value="admin">Admin</option>
+                <option value="operator">Operator</option>
+                <option value="user">User</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="statusFilter">
+                <option value="all">Tất cả trạng thái</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Không hoạt động</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- User List View -->
+    <div class="card shadow mb-4" id="userListView">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover" id="usersTable">
+                    <thead>
+                        <tr>
+                            <th>Người dùng</th>
+                            <th>Email</th>
+                            <th>Vai trò</th>
+                            <th>Trạng thái</th>
+                            <th>Đăng nhập gần nhất</th>
+                            <th>Ngày tạo</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dynamic content will be loaded with JavaScript -->
+                        <tr>
+                            <td colspan="7" class="text-center">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                Đang tải dữ liệu...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Grid View (Initially Hidden) -->
+    <div id="userGridView" style="display: none;">
+        <div class="row" id="usersGrid">
+            <!-- Dynamic content will be loaded with JavaScript -->
+            <div class="col-12 text-center p-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Đang tải dữ liệu người dùng...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal fade" id="addUserModal" tabindex="-1" aria-labelledby="addUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addUserModalLabel">Thêm người dùng mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addUserForm">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Tên đăng nhập</label>
+                        <input type="text" class="form-control" id="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Mật khẩu</label>
+                        <input type="password" class="form-control" id="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="confirmPassword" class="form-label">Xác nhận mật khẩu</label>
+                        <input type="password" class="form-control" id="confirmPassword" required>
+                        <div class="invalid-feedback" id="passwordMatchError">
+                            Mật khẩu không khớp.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Vai trò</label>
+                        <select class="form-select" id="role" required>
+                            <option value="user">User</option>
+                            <option value="operator">Operator</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveUserBtn">Lưu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editUserModalLabel">Chỉnh sửa người dùng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId">
+                    <div class="mb-3">
+                        <label for="editUsername" class="form-label">Tên đăng nhập</label>
+                        <input type="text" class="form-control" id="editUsername" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="editEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editPassword" class="form-label">Mật khẩu mới (để trống nếu không đổi)</label>
+                        <input type="password" class="form-control" id="editPassword">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editConfirmPassword" class="form-label">Xác nhận mật khẩu mới</label>
+                        <input type="password" class="form-control" id="editConfirmPassword">
+                        <div class="invalid-feedback" id="editPasswordMatchError">
+                            Mật khẩu không khớp.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRole" class="form-label">Vai trò</label>
+                        <select class="form-select" id="editRole" required>
+                            <option value="user">User</option>
+                            <option value="operator">Operator</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="editActive" checked>
+                        <label class="form-check-label" for="editActive">
+                            Tài khoản đang hoạt động
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="updateUserBtn">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteUserModalLabel">Xác nhận xóa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bạn có chắc chắn muốn xóa người dùng <span id="deleteUserName" class="fw-bold"></span>?</p>
+                <p class="text-danger">Cảnh báo: Thao tác này không thể hoàn tác. Tất cả dữ liệu liên quan đến người dùng này sẽ bị xóa vĩnh viễn.</p>
+                <input type="hidden" id="deleteUserId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Xóa người dùng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1" aria-labelledby="userDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userDetailsModalLabel">Chi tiết người dùng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div class="user-avatar mx-auto my-3" style="width: 100px; height: 100px; font-size: 2rem;">
+                            <!-- Avatar first letter will be inserted here -->
+                        </div>
+                        <h5 id="detailUsername"></h5>
+                        <span class="badge bg-primary" id="detailRole"></span>
+                    </div>
+                    <div class="col-md-8">
+                        <table class="table">
+                            <tbody>
+                                <tr>
+                                    <th>Email:</th>
+                                    <td id="detailEmail"></td>
+                                </tr>
+                                <tr>
+                                    <th>Trạng thái:</th>
+                                    <td id="detailStatus"></td>
+                                </tr>
+                                <tr>
+                                    <th>Ngày tạo:</th>
+                                    <td id="detailCreatedAt"></td>
+                                </tr>
+                                <tr>
+                                    <th>Đăng nhập gần nhất:</th>
+                                    <td id="detailLastLogin"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <h6>Hoạt động gần đây</h6>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Thời gian</th>
+                                    <th>Hành động</th>
+                                    <th>IP address</th>
+                                </tr>
+                            </thead>
+                            <tbody id="userActivityTable">
+                                <tr>
+                                    <td colspan="3" class="text-center">Không có dữ liệu hoạt động</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="editUserDetailsBtn">Chỉnh sửa</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/users.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize users page
+        initializeUsers();
+        
+        // View toggle functionality
+        document.getElementById('gridViewBtn').addEventListener('click', function() {
+            document.getElementById('userGridView').style.display = 'block';
+            document.getElementById('userListView').style.display = 'none';
+            this.classList.add('active');
+            document.getElementById('listViewBtn').classList.remove('active');
+        });
+        
+        document.getElementById('listViewBtn').addEventListener('click', function() {
+            document.getElementById('userGridView').style.display = 'none';
+            document.getElementById('userListView').style.display = 'block';
+            this.classList.add('active');
+            document.getElementById('gridViewBtn').classList.remove('active');
+        });
+        
+        // Password match validation
+        function validatePasswordMatch() {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const error = document.getElementById('passwordMatchError');
+            
+            if (password === confirmPassword) {
+                error.style.display = 'none';
+                return true;
+            } else {
+                error.style.display = 'block';
+                return false;
+            }
+        }
+        
+        document.getElementById('confirmPassword').addEventListener('input', validatePasswordMatch);
+        document.getElementById('password').addEventListener('input', validatePasswordMatch);
+        
+        function validateEditPasswordMatch() {
+            const password = document.getElementById('editPassword').value;
+            const confirmPassword = document.getElementById('editConfirmPassword').value;
+            const error = document.getElementById('editPasswordMatchError');
+            
+            if (password === confirmPassword) {
+                error.style.display = 'none';
+                return true;
+            } else if (password === '' && confirmPassword === '') {
+                error.style.display = 'none';
+                return true;
+            } else {
+                error.style.display = 'block';
+                return false;
+            }
+        }
+        
+        document.getElementById('editConfirmPassword').addEventListener('input', validateEditPasswordMatch);
+        document.getElementById('editPassword').addEventListener('input', validateEditPasswordMatch);
+    });
+</script>
+{% endblock %}

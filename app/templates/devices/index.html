@@ -1,0 +1,800 @@
+{% extends "base.html" %}
+
+{% block title %}Quản lý thiết bị - MikroTik Monitor{% endblock %}
+
+{% block extra_css %}
+<style>
+    .device-card {
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        height: 100%;
+    }
+    
+    .device-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    
+    .device-icon {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+    
+    .device-status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 5px;
+    }
+    
+    .device-status-online {
+        background-color: #28a745;
+    }
+    
+    .device-status-offline {
+        background-color: #dc3545;
+    }
+    
+    .device-status-warning {
+        background-color: #ffc107;
+    }
+    
+    .nav-devices {
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .nav-devices .nav-link {
+        border-radius: 0;
+        padding: 0.8rem 1rem;
+    }
+    
+    .nav-devices .nav-link.active {
+        color: #0d6efd;
+        border-bottom: 3px solid #0d6efd;
+    }
+    
+    .nav-devices .nav-link:hover:not(.active) {
+        background-color: #f8f9fa;
+    }
+    
+    .device-header-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        margin-right: 1rem;
+        color: #0d6efd;
+    }
+    
+    .traffic-spark {
+        min-height: 30px;
+        margin-top: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div class="d-flex align-items-center">
+            <h2 class="h3 mb-0"><i class="fas fa-server"></i> Quản lý thiết bị</h2>
+        </div>
+        <div class="d-flex">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-outline-secondary" id="gridViewBtn">
+                    <i class="fas fa-th-large"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary active" id="listViewBtn">
+                    <i class="fas fa-list"></i>
+                </button>
+            </div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDeviceModal">
+                <i class="fas fa-plus"></i> Thêm thiết bị
+            </button>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-pills nav-devices mb-4">
+        <li class="nav-item">
+            <a class="nav-link active" id="all-devices-tab" data-bs-toggle="pill" href="#all-devices">
+                <i class="fas fa-server"></i> Tất cả thiết bị
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="routers-tab" data-bs-toggle="pill" href="#routers">
+                <i class="fas fa-router"></i> Routers
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="switches-tab" data-bs-toggle="pill" href="#switches">
+                <i class="fas fa-network-wired"></i> Switches
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="wireless-tab" data-bs-toggle="pill" href="#wireless">
+                <i class="fas fa-wifi"></i> Wireless
+            </a>
+        </li>
+        <li class="nav-item ms-auto">
+            <button class="btn btn-sm btn-outline-primary" id="scanNetworkBtn">
+                <i class="fas fa-search"></i> Quét mạng
+            </button>
+        </li>
+    </ul>
+
+    <!-- Search and Filter Row -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="input-group">
+                <span class="input-group-text"><i class="fas fa-search"></i></span>
+                <input type="text" class="form-control" id="deviceSearch" placeholder="Tìm kiếm thiết bị...">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="modelFilter">
+                <option value="all">Tất cả model</option>
+                <option value="CRS">CloudRouter Switch</option>
+                <option value="CCR">CloudCore Router</option>
+                <option value="RB">RouterBoard</option>
+                <option value="hAP">hAP</option>
+                <option value="wAP">wAP</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="statusFilter">
+                <option value="all">Tất cả trạng thái</option>
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+                <option value="warning">Warning</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+        <!-- All Devices Tab -->
+        <div class="tab-pane fade show active" id="all-devices">
+            <!-- List View -->
+            <div class="card shadow mb-4" id="deviceListView">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="devicesTable">
+                            <thead>
+                                <tr>
+                                    <th>Thiết bị</th>
+                                    <th>IP</th>
+                                    <th>Model</th>
+                                    <th>RouterOS</th>
+                                    <th>Uptime</th>
+                                    <th>CPU</th>
+                                    <th>Memory</th>
+                                    <th>Status</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic content will be loaded with JavaScript -->
+                                <tr>
+                                    <td colspan="9" class="text-center">
+                                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
+                                        </div>
+                                        Đang tải danh sách thiết bị...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Grid View (Initially Hidden) -->
+            <div id="deviceGridView" style="display: none;">
+                <div class="row" id="devicesGrid">
+                    <!-- Dynamic content will be loaded with JavaScript -->
+                    <div class="col-12 text-center p-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Đang tải danh sách thiết bị...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Routers Tab -->
+        <div class="tab-pane fade" id="routers">
+            <div class="card shadow mb-4">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="routersTable">
+                            <thead>
+                                <tr>
+                                    <th>Thiết bị</th>
+                                    <th>IP</th>
+                                    <th>Model</th>
+                                    <th>RouterOS</th>
+                                    <th>Uptime</th>
+                                    <th>CPU</th>
+                                    <th>Memory</th>
+                                    <th>Status</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic content will be loaded with JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Switches Tab -->
+        <div class="tab-pane fade" id="switches">
+            <div class="card shadow mb-4">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="switchesTable">
+                            <thead>
+                                <tr>
+                                    <th>Thiết bị</th>
+                                    <th>IP</th>
+                                    <th>Model</th>
+                                    <th>RouterOS</th>
+                                    <th>Uptime</th>
+                                    <th>CPU</th>
+                                    <th>Memory</th>
+                                    <th>Status</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic content will be loaded with JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wireless Tab -->
+        <div class="tab-pane fade" id="wireless">
+            <div class="card shadow mb-4">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover" id="wirelessTable">
+                            <thead>
+                                <tr>
+                                    <th>Thiết bị</th>
+                                    <th>IP</th>
+                                    <th>Model</th>
+                                    <th>RouterOS</th>
+                                    <th>Uptime</th>
+                                    <th>CPU</th>
+                                    <th>Memory</th>
+                                    <th>Status</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamic content will be loaded with JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Device Modal -->
+<div class="modal fade" id="addDeviceModal" tabindex="-1" aria-labelledby="addDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addDeviceModalLabel">Thêm thiết bị mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addDeviceForm">
+                    <div class="mb-3">
+                        <label for="deviceName" class="form-label">Tên thiết bị</label>
+                        <input type="text" class="form-control" id="deviceName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deviceIP" class="form-label">Địa chỉ IP</label>
+                        <input type="text" class="form-control" id="deviceIP" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="deviceUsername" class="form-label">Tên đăng nhập</label>
+                        <input type="text" class="form-control" id="deviceUsername" value="admin">
+                    </div>
+                    <div class="mb-3">
+                        <label for="devicePassword" class="form-label">Mật khẩu</label>
+                        <input type="password" class="form-control" id="devicePassword">
+                    </div>
+                    <div class="mb-3">
+                        <label for="deviceType" class="form-label">Loại thiết bị</label>
+                        <select class="form-select" id="deviceType">
+                            <option value="router" selected>Router</option>
+                            <option value="switch">Switch</option>
+                            <option value="wireless">Wireless</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="devicePort" class="form-label">Port API</label>
+                        <input type="number" class="form-control" id="devicePort" value="8728">
+                        <small class="form-text text-muted">Port mặc định là 8728 (không SSL) hoặc 8729 (SSL)</small>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="deviceUseSSL">
+                        <label class="form-check-label" for="deviceUseSSL">
+                            Sử dụng SSL
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="saveDeviceBtn">Lưu thiết bị</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Device Modal -->
+<div class="modal fade" id="editDeviceModal" tabindex="-1" aria-labelledby="editDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editDeviceModalLabel">Chỉnh sửa thiết bị</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editDeviceForm">
+                    <input type="hidden" id="editDeviceId">
+                    <div class="mb-3">
+                        <label for="editDeviceName" class="form-label">Tên thiết bị</label>
+                        <input type="text" class="form-control" id="editDeviceName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDeviceIP" class="form-label">Địa chỉ IP</label>
+                        <input type="text" class="form-control" id="editDeviceIP" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDeviceUsername" class="form-label">Tên đăng nhập</label>
+                        <input type="text" class="form-control" id="editDeviceUsername">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDevicePassword" class="form-label">Mật khẩu (để trống nếu không đổi)</label>
+                        <input type="password" class="form-control" id="editDevicePassword">
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDeviceType" class="form-label">Loại thiết bị</label>
+                        <select class="form-select" id="editDeviceType">
+                            <option value="router">Router</option>
+                            <option value="switch">Switch</option>
+                            <option value="wireless">Wireless</option>
+                            <option value="other">Khác</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editDevicePort" class="form-label">Port API</label>
+                        <input type="number" class="form-control" id="editDevicePort">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="editDeviceUseSSL">
+                        <label class="form-check-label" for="editDeviceUseSSL">
+                            Sử dụng SSL
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="updateDeviceBtn">Cập nhật</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Device Modal -->
+<div class="modal fade" id="deleteDeviceModal" tabindex="-1" aria-labelledby="deleteDeviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteDeviceModalLabel">Xác nhận xóa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Bạn có chắc chắn muốn xóa thiết bị <span id="deleteDeviceName" class="fw-bold"></span>?</p>
+                <p class="text-danger">Cảnh báo: Thao tác này không thể hoàn tác. Tất cả dữ liệu liên quan đến thiết bị này sẽ bị xóa vĩnh viễn.</p>
+                <input type="hidden" id="deleteDeviceId">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Xóa thiết bị</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Device Details Modal -->
+<div class="modal fade" id="deviceDetailsModal" tabindex="-1" aria-labelledby="deviceDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deviceDetailsModalLabel">Chi tiết thiết bị</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs mb-3" id="deviceDetailsTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="true">Tổng quan</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="interfaces-tab" data-bs-toggle="tab" data-bs-target="#interfaces" type="button" role="tab" aria-controls="interfaces" aria-selected="false">Interfaces</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="clients-tab" data-bs-toggle="tab" data-bs-target="#clients" type="button" role="tab" aria-controls="clients" aria-selected="false">Clients</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="resource-tab" data-bs-toggle="tab" data-bs-target="#resource" type="button" role="tab" aria-controls="resource" aria-selected="false">Tài nguyên</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="terminal-tab" data-bs-toggle="tab" data-bs-target="#terminal" type="button" role="tab" aria-controls="terminal" aria-selected="false">Terminal</button>
+                    </li>
+                </ul>
+                
+                <div class="tab-content" id="deviceDetailsTabContent">
+                    <!-- Overview Tab -->
+                    <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+                        <div class="row mb-4 mt-2">
+                            <div class="col-md-6">
+                                <h6>Thông tin hệ thống</h6>
+                                <table class="table table-sm">
+                                    <tbody>
+                                        <tr>
+                                            <th>Tên thiết bị:</th>
+                                            <td id="detailsName">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Model:</th>
+                                            <td id="detailsModel">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Serial Number:</th>
+                                            <td id="detailsSerial">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>RouterOS:</th>
+                                            <td id="detailsVersion">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Địa chỉ IP:</th>
+                                            <td id="detailsIP">-</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Uptime:</th>
+                                            <td id="detailsUptime">-</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h6>Tài nguyên</h6>
+                                <div class="mb-3">
+                                    <label class="d-flex justify-content-between">
+                                        <span>CPU Usage:</span>
+                                        <span id="detailsCpuValue">0%</span>
+                                    </label>
+                                    <div class="progress">
+                                        <div id="detailsCpuBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="d-flex justify-content-between">
+                                        <span>Memory Usage:</span>
+                                        <span id="detailsMemoryValue">0%</span>
+                                    </label>
+                                    <div class="progress">
+                                        <div id="detailsMemoryBar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="d-flex justify-content-between">
+                                        <span>Disk Usage:</span>
+                                        <span id="detailsDiskValue">0%</span>
+                                    </label>
+                                    <div class="progress">
+                                        <div id="detailsDiskBar" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="d-flex justify-content-between">
+                                        <span>Temperature:</span>
+                                        <span id="detailsTemperatureValue">-</span>
+                                    </label>
+                                    <div class="progress">
+                                        <div id="detailsTemperatureBar" class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Traffic Overview</h6>
+                            <div>
+                                <select class="form-select form-select-sm" id="trafficTimeRange">
+                                    <option value="1">1 giờ</option>
+                                    <option value="24" selected>24 giờ</option>
+                                    <option value="72">3 ngày</option>
+                                    <option value="168">7 ngày</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <canvas id="trafficChart" height="200"></canvas>
+                        </div>
+                    </div>
+                    
+                    <!-- Interfaces Tab -->
+                    <div class="tab-pane fade" id="interfaces" role="tabpanel" aria-labelledby="interfaces-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="deviceInterfacesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Tên</th>
+                                        <th>Type</th>
+                                        <th>MAC Address</th>
+                                        <th>Status</th>
+                                        <th>MTU</th>
+                                        <th>Speed</th>
+                                        <th>Tx/Rx</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="7" class="text-center">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            Đang tải dữ liệu interfaces...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Clients Tab -->
+                    <div class="tab-pane fade" id="clients" role="tabpanel" aria-labelledby="clients-tab">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="deviceClientsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Tên host</th>
+                                        <th>MAC Address</th>
+                                        <th>IP Address</th>
+                                        <th>Interface</th>
+                                        <th>Connected since</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td colspan="5" class="text-center">
+                                            <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                            Đang tải dữ liệu clients...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Resource Tab -->
+                    <div class="tab-pane fade" id="resource" role="tabpanel" aria-labelledby="resource-tab">
+                        <div class="row mb-4 mt-2">
+                            <div class="col-md-6">
+                                <h6>CPU</h6>
+                                <div>
+                                    <canvas id="cpuDetailChart" height="200"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Memory</h6>
+                                <div>
+                                    <canvas id="memoryDetailChart" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Disk</h6>
+                                <div>
+                                    <canvas id="diskDetailChart" height="200"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Temperature</h6>
+                                <div>
+                                    <canvas id="temperatureDetailChart" height="200"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Terminal Tab -->
+                    <div class="tab-pane fade" id="terminal" role="tabpanel" aria-labelledby="terminal-tab">
+                        <div class="mb-3">
+                            <label for="commandInput" class="form-label">Command</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="commandInput" placeholder="Nhập lệnh RouterOS...">
+                                <button class="btn btn-primary" type="button" id="runCommandBtn">Chạy</button>
+                            </div>
+                            <small class="form-text text-muted">Ví dụ: /system resource print</small>
+                        </div>
+                        <div class="card bg-dark text-light">
+                            <div class="card-body">
+                                <pre id="commandOutput" class="mb-0" style="max-height: 300px; overflow-y: auto;">
+# Sẵn sàng để chạy lệnh
+</pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="d-flex justify-content-between w-100">
+                    <div>
+                        <button type="button" class="btn btn-outline-primary me-2" id="backupDeviceBtn">
+                            <i class="fas fa-download"></i> Backup
+                        </button>
+                        <button type="button" class="btn btn-outline-info" id="qrCodeDeviceBtn">
+                            <i class="fas fa-qrcode"></i> QR Code
+                        </button>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <a href="#" class="btn btn-primary" id="detailsMonitoringLink">
+                            <i class="fas fa-chart-line"></i> Giám sát
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Network Scan Modal -->
+<div class="modal fade" id="networkScanModal" tabindex="-1" aria-labelledby="networkScanModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="networkScanModalLabel">Quét thiết bị mạng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="networkScanForm" class="mb-4">
+                    <div class="mb-3">
+                        <label for="scanSubnet" class="form-label">Subnet</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="scanSubnet" placeholder="192.168.1.0/24">
+                            <button class="btn btn-primary" type="button" id="startScanBtn">
+                                <i class="fas fa-search"></i> Bắt đầu quét
+                            </button>
+                        </div>
+                        <small class="form-text text-muted">Nhập subnet cần quét, ví dụ: 192.168.1.0/24</small>
+                    </div>
+                </form>
+                
+                <div id="scanProgress" style="display: none;">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>Đang quét...</span>
+                        <span id="scanProgressPercent">0%</span>
+                    </div>
+                    <div class="progress mb-3">
+                        <div id="scanProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover" id="scanResultsTable">
+                        <thead>
+                            <tr>
+                                <th>IP Address</th>
+                                <th>Hostname</th>
+                                <th>MAC Address</th>
+                                <th>Vendor</th>
+                                <th>Ports</th>
+                                <th>Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="6" class="text-center">
+                                    Chưa có dữ liệu. Bắt đầu quét để tìm thiết bị.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-success" id="addSelectedDevicesBtn">
+                    <i class="fas fa-plus"></i> Thêm thiết bị đã chọn
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrcodeModal" tabindex="-1" aria-labelledby="qrcodeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrcodeModalLabel">QR Code thiết bị</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="qrcodeImage" src="" alt="QR Code" class="img-fluid">
+                <p class="mt-2">Quét mã QR để xem thông tin nhanh về thiết bị</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="downloadQRBtn">
+                    <i class="fas fa-download"></i> Tải xuống
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Chart.js for traffic graphs -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.0/dist/chart.min.js"></script>
+
+<script src="{{ url_for('static', filename='js/devices.js') }}"></script>
+<script src="{{ url_for('static', filename='js/qrcodes.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize devices page
+        initializeDevices();
+        
+        // View toggle functionality
+        document.getElementById('gridViewBtn').addEventListener('click', function() {
+            document.getElementById('deviceGridView').style.display = 'block';
+            document.getElementById('deviceListView').style.display = 'none';
+            this.classList.add('active');
+            document.getElementById('listViewBtn').classList.remove('active');
+        });
+        
+        document.getElementById('listViewBtn').addEventListener('click', function() {
+            document.getElementById('deviceGridView').style.display = 'none';
+            document.getElementById('deviceListView').style.display = 'block';
+            this.classList.add('active');
+            document.getElementById('gridViewBtn').classList.remove('active');
+        });
+        
+        // Network Scan
+        document.getElementById('scanNetworkBtn').addEventListener('click', function() {
+            $('#networkScanModal').modal('show');
+        });
+    });
+</script>
+{% endblock %}
